@@ -6,6 +6,7 @@ import {
   registerSchema,
 } from "@/lib/auth-schema";
 import { prisma } from "@/lib/prisma";
+import { verifyEmailAddressExists } from "@/lib/verify-email-address";
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +21,11 @@ export async function POST(request: Request) {
     }
 
     const { name, email: normalizedEmail, password } = parsed.data;
+
+    const emailCheck = await verifyEmailAddressExists(normalizedEmail);
+    if (!emailCheck.deliverable) {
+      return NextResponse.json({ error: emailCheck.message }, { status: 400 });
+    }
 
     const existing = await prisma.user.findUnique({
       where: { email: normalizedEmail },
