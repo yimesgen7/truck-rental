@@ -87,7 +87,7 @@ export function DashboardClient({ data, userName }: DashboardClientProps) {
             <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
               TruckRent
             </p>
-            <p className="mt-1 text-sm font-medium text-zinc-300">Dashboard</p>
+            <p className="mt-1 text-sm font-medium text-zinc-300">Admin</p>
           </div>
           <button
             type="button"

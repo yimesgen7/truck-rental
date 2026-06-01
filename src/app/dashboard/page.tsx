@@ -8,7 +8,7 @@ import { getDashboardData } from "@/lib/dashboard-data";
 import { isAdmin } from "@/lib/roles";
 
 export const metadata: Metadata = {
-  title: "Dashboard — TruckRent",
+  title: "Admin dashboard — TruckRent",
   description: "Manage bookings, users, trucks, and revenue.",
 };
 
@@ -23,7 +23,11 @@ async function DashboardContent() {
     redirect("/login?callbackUrl=/dashboard");
   }
 
-  const admin = isAdmin(session.user.role);
+  if (!isAdmin(session.user.role)) {
+    redirect("/orders");
+  }
+
+  const admin = true;
   const data = await getDashboardData(session.user.id, admin);
 
   return (

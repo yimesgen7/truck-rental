@@ -1,18 +1,5 @@
 import { prisma } from "@/lib/prisma";
 
-function daysBetween(start: Date, end: Date) {
-  const ms = end.getTime() - start.getTime();
-  return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-}
-
-function bookingRevenue(
-  startDate: Date,
-  endDate: Date,
-  pricePerDay: number
-) {
-  return daysBetween(startDate, endDate) * pricePerDay;
-}
-
 export async function getDashboardData(userId: string, isAdmin: boolean) {
   const bookingsWhere = isAdmin ? {} : { userId };
 
@@ -21,6 +8,7 @@ export async function getDashboardData(userId: string, isAdmin: boolean) {
       where: bookingsWhere,
       include: {
         user: { select: { id: true, name: true, email: true } },
+        truck: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -54,13 +42,16 @@ export async function getDashboardData(userId: string, isAdmin: boolean) {
     startDate: b.startDate.toISOString(),
     endDate: b.endDate.toISOString(),
     createdAt: b.createdAt.toISOString(),
-    revenue: bookingRevenue(b.startDate, b.endDate, b.pricePerDay),
-    amountTotal: b.amountTotal,
+    revenue: b.totalPrice,
+    amountTotal: b.totalPrice,
     user: b.user,
-    truckName: b.truckName,
+    truckName: b.truck.name,
   }));
 
-  const totalRevenue = bookingsWithRevenue.reduce((sum, b) => sum + b.revenue, 0);
+  const paidBookings = bookingsWithRevenue.filter(
+    (b) => b.paymentStatus === "PAID"
+  );
+  const totalRevenue = paidBookings.reduce((sum, b) => sum + b.revenue, 0);
   const pendingBookings = bookingsWithRevenue.filter(
     (b) => b.status === "PENDING"
   ).length;
@@ -71,7 +62,7 @@ export async function getDashboardData(userId: string, isAdmin: boolean) {
     const label = d.toLocaleString("default", { month: "short" });
     const month = d.getMonth();
     const year = d.getFullYear();
-    const amount = bookingsWithRevenue
+    const amount = paidBookings
       .filter((b) => {
         const created = new Date(b.createdAt);
         return created.getMonth() === month && created.getFullYear() === year;
@@ -100,6 +91,7 @@ export async function getDashboardData(userId: string, isAdmin: boolean) {
     })),
     trucks: trucks.map((t) => ({
       id: t.id,
+      catalogId: t.catalogId,
       name: t.name,
       brand: t.brand,
       model: t.model,

@@ -2,8 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { calculateBookingTotal } from "@/lib/booking-pricing";
 import {
   bookingSchema,
   driverOptions,
@@ -43,19 +44,44 @@ const defaultValues: BookingFormValues = {
   paymentMethod: "card",
 };
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const minDate = todayInputValue();
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues,
   });
+
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
+  const driverOption = watch("driverOption");
+
+  const pricePreview = useMemo(() => {
+    if (!truck || !startDate || !endDate) return null;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return null;
+    }
+    return calculateBookingTotal(
+      truck.pricePerDay,
+      start,
+      end,
+      driverOption
+    );
+  }, [truck, startDate, endDate, driverOption]);
 
   useEffect(() => {
     if (!open) {
@@ -70,6 +96,11 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
       return;
     }
 
+    if (!truck.available) {
+      setError("This truck is not available for booking.");
+      return;
+    }
+
     setError("");
 
     try {
@@ -78,10 +109,6 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           catalogTruckId: truck.id,
-          truckName: truck.name,
-          truckBrand: truck.brand,
-          truckModel: truck.model,
-          pricePerDay: truck.pricePerDay,
           ...data,
         }),
       });
@@ -114,6 +141,11 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
                 <span className="text-orange-500">
                   {formatPrice(truck.pricePerDay)}
                 </span>
+                {!truck.available && (
+                  <span className="mt-1 block text-red-400">
+                    Currently unavailable
+                  </span>
+                )}
               </>
             ) : (
               "Select a truck from the fleet, then complete your booking."
@@ -162,6 +194,7 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
               <Input
                 id="startDate"
                 type="date"
+                min={minDate}
                 className={fieldClass}
                 aria-invalid={!!errors.startDate}
                 {...register("startDate")}
@@ -178,6 +211,7 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
               <Input
                 id="endDate"
                 type="date"
+                min={startDate || minDate}
                 className={fieldClass}
                 aria-invalid={!!errors.endDate}
                 {...register("endDate")}
@@ -225,11 +259,36 @@ export function BookingModal({ open, onOpenChange, truck }: BookingModalProps) {
             )}
           </div>
 
+          {pricePreview && (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-950 p-4 text-sm">
+              <p className="font-medium text-white">Estimated total</p>
+              <div className="mt-2 space-y-1 text-zinc-400">
+                <div className="flex justify-between">
+                  <span>
+                    Rental ({pricePreview.days}{" "}
+                    {pricePreview.days === 1 ? "day" : "days"})
+                  </span>
+                  <span>${pricePreview.base.toFixed(2)}</span>
+                </div>
+                {pricePreview.driverFee > 0 && (
+                  <div className="flex justify-between">
+                    <span>Driver fee</span>
+                    <span>${pricePreview.driverFee.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-zinc-800 pt-2 font-semibold text-orange-500">
+                  <span>Total</span>
+                  <span>${pricePreview.total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <Button
             type="submit"
-            disabled={isSubmitting || !truck}
+            disabled={isSubmitting || !truck || !truck?.available}
             className="mt-2 w-full bg-orange-500 py-3 text-base font-semibold text-white hover:bg-orange-600"
           >
             {isSubmitting ? "Creating booking..." : "Continue to checkout"}

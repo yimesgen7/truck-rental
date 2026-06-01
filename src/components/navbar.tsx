@@ -7,6 +7,7 @@ import { useState } from "react";
 import { RequireAuthButton } from "@/components/require-auth-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { navLinks } from "@/lib/nav-links";
+import { isAdmin } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 const navLinkClass =
@@ -18,6 +19,9 @@ const navBtnClass =
 export function Navbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const accountHref = user && isAdmin(user.role) ? "/dashboard" : "/orders";
+  const accountLabel = user && isAdmin(user.role) ? "Dashboard" : "Track orders";
 
   const closeMenu = () => setMenuOpen(false);
 
@@ -49,8 +53,8 @@ export function Navbar() {
         <div className="hidden items-center gap-3 lg:flex">
           {user ? (
             <>
-              <Link href="/dashboard" className={navBtnClass}>
-                Dashboard
+              <Link href={accountHref} className={navBtnClass}>
+                {accountLabel}
               </Link>
               <button
                 type="button"
@@ -115,11 +119,11 @@ export function Navbar() {
             {user ? (
               <>
                 <Link
-                  href="/dashboard"
+                  href={accountHref}
                   onClick={closeMenu}
                   className={navLinkClass}
                 >
-                  Dashboard
+                  {accountLabel}
                 </Link>
                 <button
                   type="button"

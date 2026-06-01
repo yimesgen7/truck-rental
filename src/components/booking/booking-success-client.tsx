@@ -126,7 +126,7 @@ export function BookingSuccessClient({
               variant="outline"
               className="w-full border-zinc-700 bg-transparent text-white hover:bg-zinc-800"
             >
-              <Link href="/dashboard">Go to dashboard</Link>
+              <Link href="/orders">Track your order</Link>
             </Button>
           </CardContent>
         </Card>

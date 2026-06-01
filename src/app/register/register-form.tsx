@@ -46,7 +46,7 @@ export function RegisterForm() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push("/orders");
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

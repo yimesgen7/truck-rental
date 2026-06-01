@@ -12,10 +12,16 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const authError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => {
+    if (authError === "Configuration") {
+      return "Authentication is not configured. Add AUTH_SECRET (or NEXTAUTH_SECRET) to your .env file and restart the dev server.";
+    }
+    return "";
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {

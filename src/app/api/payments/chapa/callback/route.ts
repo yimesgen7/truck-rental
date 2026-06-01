@@ -27,7 +27,8 @@ export async function GET(request: Request) {
   }
 
   if (booking.paymentStatus !== "PAID") {
-    const ref = trxRef ?? booking.payment?.externalId ?? `truckrent-${bookingId}`;
+    const ref =
+      trxRef ?? booking.payment?.transactionId ?? `truckrent-${bookingId}`;
     const verified = await verifyChapaTransaction(ref);
     if (verified) {
       await markBookingPaid(bookingId, "chapa", ref);

@@ -11,20 +11,35 @@ export const paymentMethods = [
   { value: "paypal", label: "PayPal" },
 ] as const;
 
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function withDateRefinement<T extends z.ZodType>(schema: T) {
-  return schema.refine(
-    (data) => {
-      const d = data as { startDate: string; endDate: string };
-      const start = new Date(d.startDate);
-      const end = new Date(d.endDate);
-      return (
-        !Number.isNaN(start.getTime()) &&
-        !Number.isNaN(end.getTime()) &&
-        end >= start
-      );
-    },
-    { message: "End date must be on or after start date", path: ["endDate"] }
-  );
+  return schema
+    .refine(
+      (data) => {
+        const d = data as { startDate: string; endDate: string };
+        const start = new Date(d.startDate);
+        const end = new Date(d.endDate);
+        return (
+          !Number.isNaN(start.getTime()) &&
+          !Number.isNaN(end.getTime()) &&
+          end >= start
+        );
+      },
+      { message: "End date must be on or after start date", path: ["endDate"] }
+    )
+    .refine(
+      (data) => {
+        const d = data as { startDate: string };
+        const start = new Date(d.startDate);
+        return !Number.isNaN(start.getTime()) && start >= startOfToday();
+      },
+      { message: "Start date cannot be in the past", path: ["startDate"] }
+    );
 }
 
 const bookingFields = z.object({
@@ -40,11 +55,7 @@ export const bookingSchema = withDateRefinement(bookingFields);
 
 export const createBookingSchema = withDateRefinement(
   bookingFields.extend({
-    catalogTruckId: z.string().min(1),
-    truckName: z.string().min(1),
-    truckBrand: z.string().min(1),
-    truckModel: z.string().min(1),
-    pricePerDay: z.number().positive(),
+    catalogTruckId: z.string().min(1, "Truck is required"),
   })
 );
 

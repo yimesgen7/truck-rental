@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   }
 
   if (booking.paymentStatus !== "PAID") {
-    const orderId = token ?? booking.payment?.externalId;
+    const orderId = token ?? booking.payment?.transactionId;
     if (orderId) {
       const captured = await capturePayPalOrder(orderId);
       if (captured) {

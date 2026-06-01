@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth-options";
+import { BOOKING_CURRENCY } from "@/lib/booking-utils";
 import { initializeChapaPayment } from "@/lib/payments/chapa";
 import { createPayPalOrder } from "@/lib/payments/paypal";
 import { getStripe } from "@/lib/payments/stripe";
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, userId: session.user.id },
-      include: { payment: true, user: true },
+      include: { payment: true, user: true, truck: true },
     });
 
     if (!booking) {
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     const base = appUrl();
     const successUrl = `${base}/booking/success?bookingId=${booking.id}`;
     const cancelUrl = `${base}/checkout/${booking.id}?cancelled=1`;
+    const currency = BOOKING_CURRENCY.toLowerCase();
 
     if (provider === "stripe") {
       const stripe = getStripe();
@@ -59,11 +61,11 @@ export async function POST(request: Request) {
           {
             quantity: 1,
             price_data: {
-              currency: booking.currency.toLowerCase(),
-              unit_amount: Math.round(booking.amountTotal * 100),
+              currency,
+              unit_amount: Math.round(booking.totalPrice * 100),
               product_data: {
-                name: `${booking.truckName} rental`,
-                description: `${booking.truckBrand} ${booking.truckModel}`,
+                name: `${booking.truck.name} rental`,
+                description: `${booking.truck.brand} ${booking.truck.model}`,
               },
             },
           },
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
 
       await prisma.payment.update({
         where: { bookingId: booking.id },
-        data: { externalId: checkoutSession.id },
+        data: { transactionId: checkoutSession.id },
       });
 
       return NextResponse.json({ redirectUrl: checkoutSession.url });
@@ -84,8 +86,8 @@ export async function POST(request: Request) {
     if (provider === "chapa") {
       const names = (booking.user.name ?? "TruckRent User").split(" ");
       const chapaUrl = await initializeChapaPayment({
-        amount: booking.amountTotal,
-        currency: booking.currency,
+        amount: booking.totalPrice,
+        currency: BOOKING_CURRENCY,
         email: booking.user.email,
         firstName: names[0] ?? "TruckRent",
         lastName: names.slice(1).join(" ") || "Customer",
@@ -103,7 +105,7 @@ export async function POST(request: Request) {
 
       await prisma.payment.update({
         where: { bookingId: booking.id },
-        data: { externalId: `truckrent-${booking.id}` },
+        data: { transactionId: `truckrent-${booking.id}` },
       });
 
       return NextResponse.json({ redirectUrl: chapaUrl });
@@ -111,8 +113,8 @@ export async function POST(request: Request) {
 
     if (provider === "paypal") {
       const paypal = await createPayPalOrder({
-        amount: booking.amountTotal,
-        currency: booking.currency,
+        amount: booking.totalPrice,
+        currency: BOOKING_CURRENCY,
         bookingId: booking.id,
         returnUrl: `${base}/api/payments/paypal/capture?bookingId=${booking.id}`,
         cancelUrl,
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
 
       await prisma.payment.update({
         where: { bookingId: booking.id },
-        data: { externalId: paypal.orderId },
+        data: { transactionId: paypal.orderId },
       });
 
       return NextResponse.json({ redirectUrl: paypal.approveUrl });

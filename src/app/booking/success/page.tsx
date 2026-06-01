@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { BookingSuccessClient } from "@/components/booking/booking-success-client";
 import { getSession } from "@/lib/auth";
+import { BOOKING_CURRENCY } from "@/lib/booking-utils";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -26,7 +27,7 @@ async function SuccessContent({
 
   const booking = await prisma.booking.findFirst({
     where: { id: bookingId, userId: session.user.id },
-    include: { payment: true },
+    include: { payment: true, truck: true },
   });
 
   if (!booking) {
@@ -37,11 +38,11 @@ async function SuccessContent({
     <BookingSuccessClient
       booking={{
         id: booking.id,
-        truckName: booking.truckName,
+        truckName: booking.truck.name,
         invoiceNumber: booking.invoiceNumber,
         paymentStatus: booking.paymentStatus,
-        amountTotal: booking.amountTotal,
-        currency: booking.currency,
+        amountTotal: booking.totalPrice,
+        currency: BOOKING_CURRENCY,
         payment: booking.payment
           ? { provider: booking.payment.provider }
           : null,

@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 
 import { InvoiceActions } from "@/components/booking/invoice-actions";
 import { getSession } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
 import { rentalDays } from "@/lib/booking-pricing";
+import { BOOKING_CURRENCY } from "@/lib/booking-utils";
+import { isAdmin } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_PROVIDER_LABELS } from "@/types/payment";
 import type { PaymentProvider } from "@/types/payment";
@@ -34,12 +35,13 @@ export default async function InvoicePage({ params }: PageProps) {
       : { id, userId: session.user.id },
     include: {
       payment: true,
+      truck: true,
       user: { select: { name: true, email: true } },
     },
   });
 
   if (!booking || booking.paymentStatus !== "PAID") {
-    redirect("/dashboard");
+    redirect(isAdmin(session.user.role) ? "/dashboard" : "/orders");
   }
 
   const days = rentalDays(booking.startDate, booking.endDate);
@@ -92,9 +94,9 @@ export default async function InvoicePage({ params }: PageProps) {
           <tbody>
             <tr className="border-b border-zinc-100">
               <td className="py-4">
-                <p className="font-semibold">{booking.truckName}</p>
+                <p className="font-semibold">{booking.truck.name}</p>
                 <p className="text-zinc-500">
-                  {booking.truckBrand} {booking.truckModel}
+                  {booking.truck.brand} {booking.truck.model}
                 </p>
                 <p className="mt-1 text-zinc-500">
                   Pickup: {booking.pickupLocation}
@@ -117,17 +119,17 @@ export default async function InvoicePage({ params }: PageProps) {
                 <span className="text-zinc-400">({days} days)</span>
               </td>
               <td className="py-4 text-right font-semibold">
-                ${booking.amountTotal.toFixed(2)}
+                ${booking.totalPrice.toFixed(2)}
               </td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
               <td colSpan={2} className="pt-6 text-right font-semibold">
-                Total ({booking.currency})
+                Total ({BOOKING_CURRENCY})
               </td>
               <td className="pt-6 text-right text-2xl font-bold text-orange-600">
-                ${booking.amountTotal.toFixed(2)}
+                ${booking.totalPrice.toFixed(2)}
               </td>
             </tr>
           </tfoot>

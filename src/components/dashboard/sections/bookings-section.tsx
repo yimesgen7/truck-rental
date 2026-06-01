@@ -1,5 +1,5 @@
+import { BookingStatusActions } from "@/components/dashboard/booking-status-actions";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { RowActions } from "@/components/dashboard/row-actions";
 import {
   Card,
   CardContent,
@@ -52,7 +52,9 @@ export function BookingsSection({ data }: { data: DashboardData }) {
                 <TableHead className="text-zinc-400">Dates</TableHead>
                 <TableHead className="text-zinc-400">Status</TableHead>
                 <TableHead className="text-zinc-400">Revenue</TableHead>
-                <TableHead className="w-10 text-zinc-400" />
+                {data.isAdmin && (
+                  <TableHead className="text-zinc-400">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,9 +88,11 @@ export function BookingsSection({ data }: { data: DashboardData }) {
                   <TableCell className="text-orange-500">
                     ${booking.revenue.toLocaleString()}
                   </TableCell>
-                  <TableCell>
-                    <RowActions label={`booking ${booking.id.slice(0, 8)}`} />
-                  </TableCell>
+                  {data.isAdmin && (
+                    <TableCell>
+                      <BookingStatusActions booking={booking} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

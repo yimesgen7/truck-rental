@@ -10,77 +10,134 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String    @id @default(cuid())
-  name      String?
-  email     String    @unique
-  password  String
-  role      String    @default("USER")
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
+enum Role {
+  USER
+  ADMIN
 }
 
-model PasswordResetToken {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum TruckType {
+  PICKUP
+  BOX_TRUCK
+  CARGO_VAN
+  HEAVY_DUTY
+  REFRIGERATED
+}
+
+model User {
+  id          String      @id @default(cuid())
+  name        String
+  email       String      @unique
+  password    String
+  phone       String?
+  image       String?
+  role        Role        @default(USER)
+
+  bookings    Booking[]
+  reviews     Review[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Truck {
-  id          String    @id @default(cuid())
-  name        String
-  brand       String
-  model       String
-  pricePerDay Float
-  capacity    Int
-  image       String
-  available   Boolean   @default(true)
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
+  id              String          @id @default(cuid())
+  catalogId       String          @unique
+  name            String
+  brand           String
+  model           String
+  year            Int
+
+  type            TruckType
+
+  description     String
+  image           String
+
+  pricePerDay     Float
+  capacity        Int
+  transmission    String
+  fuelType        String
+  location        String
+
+  available       Boolean         @default(true)
+
+  bookings        Booking[]
+  reviews         Review[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model Booking {
-  id              String    @id @default(cuid())
-  userId          String
-  truckId         String?
-  catalogTruckId  String
-  truckName       String
-  truckBrand      String
-  truckModel      String
-  pricePerDay     Float
-  pickupLocation  String
-  dropoffLocation String
-  startDate       DateTime
-  endDate         DateTime
-  driverOption    String
-  paymentMethod   String
-  paymentStatus   String    @default("PENDING")
-  amountTotal     Float
-  currency        String    @default("USD")
-  invoiceNumber   String?   @unique
-  status          String    @default("PENDING")
+  id                String          @id @default(cuid())
 
-  user    User     @relation(fields: [userId], references: [id])
-  truck   Truck?   @relation(fields: [truckId], references: [id])
-  payment Payment?
+  userId            String
+  truckId           String
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  pickupLocation    String
+  dropoffLocation   String
+
+  startDate         DateTime
+  endDate           DateTime
+
+  driverOption      String
+  paymentMethod     String
+
+  totalPrice        Float
+  invoiceNumber     String?         @unique
+
+  status            BookingStatus   @default(PENDING)
+  paymentStatus     PaymentStatus   @default(PENDING)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id])
+  truck             Truck           @relation(fields: [truckId], references: [id])
+
+  payment           Payment?
 }
 
 model Payment {
-  id         String   @id @default(cuid())
-  bookingId  String   @unique
-  provider   String
-  amount     Float
-  currency   String   @default("USD")
-  status     String   @default("PENDING")
-  externalId String?
+  id              String          @id @default(cuid())
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingId       String          @unique
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  amount          Float
+  provider        String
+  transactionId   String?
+
+  status          PaymentStatus   @default(PENDING)
+
+  createdAt       DateTime        @default(now())
+
+  booking         Booking         @relation(fields: [bookingId], references: [id])
+}
+
+model Review {
+  id            String      @id @default(cuid())
+
+  rating        Int
+  comment       String
+
+  userId        String
+  truckId       String
+
+  user          User        @relation(fields: [userId], references: [id])
+  truck         Truck       @relation(fields: [truckId], references: [id])
+
+  createdAt     DateTime    @default(now())
 }

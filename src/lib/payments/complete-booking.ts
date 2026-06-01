@@ -5,7 +5,7 @@ import type { PaymentProvider } from "@/types/payment";
 export async function markBookingPaid(
   bookingId: string,
   provider: PaymentProvider,
-  externalId?: string
+  transactionId?: string
 ) {
   const invoiceNumber = generateInvoiceNumber();
 
@@ -23,7 +23,7 @@ export async function markBookingPaid(
       data: {
         status: "PAID",
         provider,
-        externalId,
+        transactionId,
       },
     }),
   ]);

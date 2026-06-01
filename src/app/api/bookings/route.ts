@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth-options";
 import { calculateBookingTotal } from "@/lib/booking-pricing";
 import { createBookingSchema } from "@/lib/booking-schema";
+import {
+  findTruckByCatalogId,
+  hasBookingConflict,
+} from "@/lib/booking-utils";
 import { mapPaymentMethodToProvider } from "@/lib/payments/stripe";
 import { prisma } from "@/lib/prisma";
 
@@ -25,10 +29,34 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
+    const truck = await findTruckByCatalogId(data.catalogTruckId);
+
+    if (!truck) {
+      return NextResponse.json(
+        { error: "Truck not found. Run database seed to sync the fleet." },
+        { status: 404 }
+      );
+    }
+
+    if (!truck.available) {
+      return NextResponse.json(
+        { error: "This truck is not available for booking." },
+        { status: 400 }
+      );
+    }
+
     const startDate = new Date(data.startDate);
     const endDate = new Date(data.endDate);
+
+    if (await hasBookingConflict(truck.id, startDate, endDate)) {
+      return NextResponse.json(
+        { error: "This truck is already booked for the selected dates." },
+        { status: 409 }
+      );
+    }
+
     const pricing = calculateBookingTotal(
-      data.pricePerDay,
+      truck.pricePerDay,
       startDate,
       endDate,
       data.driverOption
@@ -39,23 +67,18 @@ export async function POST(request: Request) {
     const booking = await prisma.booking.create({
       data: {
         userId: session.user.id,
-        catalogTruckId: data.catalogTruckId,
-        truckName: data.truckName,
-        truckBrand: data.truckBrand,
-        truckModel: data.truckModel,
-        pricePerDay: data.pricePerDay,
+        truckId: truck.id,
         pickupLocation: data.pickupLocation,
         dropoffLocation: data.dropoffLocation,
         startDate,
         endDate,
         driverOption: data.driverOption,
         paymentMethod: data.paymentMethod,
-        amountTotal: pricing.total,
+        totalPrice: pricing.total,
         payment: {
           create: {
             provider,
             amount: pricing.total,
-            currency: "USD",
             status: "PENDING",
           },
         },
@@ -65,7 +88,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       bookingId: booking.id,
-      amountTotal: booking.amountTotal,
+      amountTotal: booking.totalPrice,
       pricing,
     });
   } catch {
