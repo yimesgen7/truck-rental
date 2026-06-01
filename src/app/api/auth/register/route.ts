@@ -1,25 +1,25 @@
 import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
 
+import {
+  firstZodErrorMessage,
+  registerSchema,
+} from "@/lib/auth-schema";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password } = body as {
-      name?: string;
-      email?: string;
-      password?: string;
-    };
+    const parsed = registerSchema.safeParse(body);
 
-    if (!email?.trim() || !password || password.length < 6) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Email and password (min 6 characters) are required." },
+        { error: firstZodErrorMessage(parsed.error) },
         { status: 400 }
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const { name, email: normalizedEmail, password } = parsed.data;
 
     const existing = await prisma.user.findUnique({
       where: { email: normalizedEmail },

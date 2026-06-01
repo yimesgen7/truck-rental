@@ -7,6 +7,10 @@ import { FormEvent, useState } from "react";
 
 import { AuthPageShell } from "@/components/auth-page-shell";
 import { Input } from "@/components/ui/input";
+import {
+  firstZodErrorMessage,
+  registerSchema,
+} from "@/lib/auth-schema";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -21,11 +25,18 @@ export function RegisterForm() {
     setError("");
     setIsSubmitting(true);
 
+    const parsed = registerSchema.safeParse({ name, email, password });
+    if (!parsed.success) {
+      setError(firstZodErrorMessage(parsed.error));
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(parsed.data),
       });
 
       const data = await res.json();
@@ -36,8 +47,8 @@ export function RegisterForm() {
       }
 
       const signInResult = await signIn("credentials", {
-        email,
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
         redirect: false,
       });
 
