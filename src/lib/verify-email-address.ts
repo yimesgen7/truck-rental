@@ -1,10 +1,13 @@
 import net from "net";
 
-const VERIFY_TIMEOUT_MS = 12_000;
+const VERIFY_TIMEOUT_MS = 8_000;
 const MAIL_FROM = "verify@truckrent.app";
 
-/** Providers that block or spoof SMTP RCPT results. */
-const SMTP_ANTIS_ENUMERATION_DOMAINS = new Set([
+/**
+ * Large providers often block or obscure SMTP mailbox probes.
+ * For these, we only reject when the domain has no MX records.
+ */
+const SMTP_UNRELIABLE_DOMAINS = new Set([
   "gmail.com",
   "googlemail.com",
   "google.com",
@@ -178,7 +181,7 @@ async function probeMailbox(email: string): Promise<"valid" | "invalid" | "unkno
     return "invalid";
   }
 
-  for (const host of hosts.slice(0, 3)) {
+  for (const host of hosts.slice(0, 2)) {
     const result = await smtpRcptCheck(host, email, VERIFY_TIMEOUT_MS);
     if (result !== "unknown") {
       return result;
@@ -259,55 +262,24 @@ export async function verifyEmailAddressExists(
     };
   }
 
-  const usesAntiEnumeration = SMTP_ANTIS_ENUMERATION_DOMAINS.has(domain);
-
-  if (usesAntiEnumeration) {
-    const apiResult = await verifyWithAbstractApi(email);
-    if (apiResult) {
-      return apiResult;
-    }
-
-    const probe = await probeMailbox(email);
-    if (probe === "valid") {
-      return { deliverable: true };
-    }
-    if (probe === "invalid") {
-      return {
-        deliverable: false,
-        message:
-          "This email address does not exist. Use a real email you can access.",
-      };
-    }
-
-    return {
-      deliverable: false,
-      message:
-        "We could not verify this email address. Please use a real, active email.",
-    };
-  }
-
-  const probe = await probeMailbox(email);
-
-  if (probe === "valid") {
-    return { deliverable: true };
-  }
-
-  if (probe === "invalid") {
-    return {
-      deliverable: false,
-      message:
-        "This email address does not exist. Use a real email you can access.",
-    };
-  }
-
   const apiResult = await verifyWithAbstractApi(email);
   if (apiResult) {
     return apiResult;
   }
 
+  if (SMTP_UNRELIABLE_DOMAINS.has(domain)) {
+    return { deliverable: true };
+  }
+
+  const probe = await probeMailbox(email);
+
+  if (probe === "valid" || probe === "unknown") {
+    return { deliverable: true };
+  }
+
   return {
     deliverable: false,
     message:
-      "We could not verify this email address. Please use a real, active email.",
+      "This email address does not exist. Use a real email you can access.",
   };
 }
